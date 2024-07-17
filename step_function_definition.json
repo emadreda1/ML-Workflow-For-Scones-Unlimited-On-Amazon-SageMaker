@@ -1,0 +1,78 @@
+{
+    "Comment": "Scones Unlimited Step Function with Parallel Processing",
+    "StartAt": "SerializeImageData",
+    "States": {
+        "SerializeImageData": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:region:account-id:function:serializeImageData",
+            "Next": "ParallelState",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "ResultPath": "$.error-info",
+                    "Next": "NotifyError"
+                }
+            ]
+        },
+        "ParallelState": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "ImageClassification",
+                    "States": {
+                        "ImageClassification": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:region:account-id:function:imageClassification",
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "ImageClassification",
+                    "States": {
+                        "ImageClassification": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:region:account-id:function:imageClassification",
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "Next": "FilterInferences",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "ResultPath": "$.error-info",
+                    "Next": "NotifyError"
+                }
+            ]
+        },
+        "FilterInferences": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:region:account-id:function:filterInferences",
+            "End": true,
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "ResultPath": "$.error-info",
+                    "Next": "NotifyError"
+                }
+            ]
+        },
+        "NotifyError": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:sns:publish",
+            "Parameters": {
+                "Message.$": "States.StringToJson($.error-info.Cause)",
+                "TopicArn": "arn:aws:sns:region:account-id:StepFunctionErrors"
+            },
+            "End": true
+        }
+    }
+}
